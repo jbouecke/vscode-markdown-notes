@@ -31,9 +31,13 @@ export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<Backli
   // - file2.md
   //   - l2
   // NB: does work well with relativePaths mode, assumes uniqueFilenames
+  // However, disambiguation will take place always now (regardless of 
+  // 'uniqueFilenames' setting) but no hieraray is used/shown.
   locationListToTree(locations: vscode.Location[]): FileWithLocations[] {
     let m: Record<string, FileWithLocations> = {};
+    // aggregatses all file pathes for one file name
     let mBaseNameCommon: Map<string, string> = new Map();
+    // collects the 'common' base path for all files of the same name
     let mBaseNamePathes: Map<string, Set<string>> = new Map();
     if (this.workspaceRoot) {
       locations.forEach(l => {
