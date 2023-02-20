@@ -9,7 +9,7 @@ type FileWithLocations = {
   locations: vscode.Location[];
 };
 export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<BacklinkItem> {
-  constructor(private workspaceRoot: string | null) {}
+  constructor(private workspaceRoot: string | null) { }
   _onDidChangeTreeData: vscode.EventEmitter<BacklinkItem> = new vscode.EventEmitter<BacklinkItem>();
   onDidChangeTreeData: vscode.Event<BacklinkItem> = this._onDidChangeTreeData.event;
   reload(): void {
@@ -31,10 +31,44 @@ export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<Backli
   // - file2.md
   //   - l2
   // NB: does work well with relativePaths mode, assumes uniqueFilenames
-  static locationListToTree(locations: vscode.Location[]): FileWithLocations[] {
+  locationListToTree(locations: vscode.Location[]): FileWithLocations[] {
     let m: Record<string, FileWithLocations> = {};
-    locations.map((l) => {
-      let f = path.basename(l.uri.fsPath);
+    let mBaseNameCommon: Map<string, string> = new Map();
+    let mBaseNamePathes: Map<string, Set<string>> = new Map();
+    if (this.workspaceRoot) {
+      locations.forEach(l => {
+        const baseName = path.basename(l.uri.fsPath);
+        const fullPath = path.dirname(this.workspaceRoot ? path.relative(this.workspaceRoot, l.uri.fsPath) : l.uri.fsPath);
+        if (mBaseNamePathes.has(baseName)) {
+          mBaseNamePathes.get(baseName)?.add(fullPath)
+        } else {
+          mBaseNamePathes.set(baseName, new Set([fullPath]))
+        }
+      })
+      for (const [name, pathes] of mBaseNamePathes) {
+        mBaseNameCommon.set(name, [...pathes].reduce((acc, val) => {
+          const a = path.join(acc).split(path.sep);
+          const b = path.join(val).split(path.sep)
+          const n = a.length < b.length ? a.length : b.length;
+          let i = 0;
+          const common = []
+          while (i < n && a[i] === b[i]) {
+            common.push(a[i++])
+          }
+          return path.join(...common)
+        }))
+      }
+    }
+    locations.forEach((l) => {
+      let f;
+      const baseName = path.basename(l.uri.fsPath);
+      if (this.workspaceRoot && mBaseNameCommon.get(baseName)) {
+        const basePath = path.join(this.workspaceRoot, mBaseNameCommon.get(baseName) as string)
+        f = path.relative(basePath, l.uri.fsPath);
+      } else {
+        f = baseName;
+      }
+      console.log(f);
       if (!m[f]) {
         let fwl: FileWithLocations = {
           file: f,
@@ -101,7 +135,7 @@ export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<Backli
         NoteParser.searchBacklinksFor(activeFilename, RefType.Hyperlink),
       ]).then((arr) => {
         let locations: vscode.Location[] = arr[0].concat(arr[1]);
-        let filesWithLocations = BacklinksTreeDataProvider.locationListToTree(locations);
+        let filesWithLocations = this.locationListToTree(locations);
         return filesWithLocations.map((fwl) => BacklinkItem.fromFileWithLocations(fwl));
       });
       // Given the collapsible elements,
