@@ -39,36 +39,38 @@ export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<Backli
     let mBaseNameCommon: Map<string, string> = new Map();
     // collects the 'common' base path for all files of the same name
     let mBaseNamePathes: Map<string, Set<string>> = new Map();
-    if (this.workspaceRoot) {
-      locations.forEach(l => {
-        const baseName = path.basename(l.uri.fsPath);
-        const fullPath = path.dirname(this.workspaceRoot ? path.relative(this.workspaceRoot, l.uri.fsPath) : l.uri.fsPath);
-        if (mBaseNamePathes.has(baseName)) {
-          mBaseNamePathes.get(baseName)?.add(fullPath)
-        } else {
-          mBaseNamePathes.set(baseName, new Set([fullPath]))
-        }
-      })
-      for (const [name, pathes] of mBaseNamePathes) {
-        mBaseNameCommon.set(name, [...pathes].reduce((acc, val) => {
-          const a = path.join(acc).split(path.sep);
-          const b = path.join(val).split(path.sep)
-          const n = a.length < b.length ? a.length : b.length;
-          let i = 0;
-          const common = []
-          while (i < n && a[i] === b[i]) {
-            common.push(a[i++])
-          }
-          return path.join(...common)
-        }))
+
+    locations.forEach(l => {
+      const baseName = path.basename(l.uri.fsPath);
+      const fullPath = l.uri.fsPath;
+      if (mBaseNamePathes.has(baseName)) {
+        mBaseNamePathes.get(baseName)?.add(fullPath)
+      } else {
+        mBaseNamePathes.set(baseName, new Set([fullPath]))
       }
+    })
+    for (const [name, pathes] of mBaseNamePathes) {
+      if (pathes.size > 1) mBaseNameCommon.set(name, [...pathes].reduce((acc, val) => {
+        const a = path.join(acc).split(path.sep);
+        const b = path.join(val).split(path.sep)
+        const n = a.length < b.length ? a.length : b.length;
+        let i = 0;
+        const common = []
+        while (i < n && a[i] === b[i]) {
+          common.push(a[i++])
+        }
+        if (acc.startsWith(path.sep))
+          return path.sep + path.join(...common)
+        else
+          return path.join(...common)
+      }))
     }
+
     locations.forEach((l) => {
       let f;
       const baseName = path.basename(l.uri.fsPath);
       if (this.workspaceRoot && mBaseNameCommon.get(baseName)) {
-        const basePath = path.join(this.workspaceRoot, mBaseNameCommon.get(baseName) as string)
-        f = path.relative(basePath, l.uri.fsPath);
+        f = path.relative(mBaseNameCommon.get(baseName) as string, l.uri.fsPath);
       } else {
         f = baseName;
       }
