@@ -72,7 +72,6 @@ export class BacklinksTreeDataProvider implements vscode.TreeDataProvider<Backli
       } else {
         f = baseName;
       }
-      console.log(f);
       if (!m[f]) {
         let fwl: FileWithLocations = {
           file: f,
